@@ -1,21 +1,33 @@
 const { ApolloServer } = require('apollo-server');
 
-// 1. apollo-server를 불러온다.
 const typeDefs = `
   type Query {
     totalPhotos: Int!
   }
+
+  type Mutation {
+    postPhoto(name: String! description: String): Boolean!
+  }
 `;
+
+// 1. 메모리에 사진을 저장할 때 사용할 데이터 타입
+var photos = [];
 
 const resolvers = {
   Query: {
-    totalPhotos: () => 42,
+    // 2. 사진 배열의 길이를 반환한다.
+    totalPhotos: () => photos.length,
+  },
+
+  // 3. Mutation & postPhoto 리졸버 함수
+  Mutation: {
+    postPhoto(parent, args) {
+      photos.push(args);
+      return true;
+    },
   },
 };
 
-// 2. 서버 인스턴스를 새로 생성한다.
-
-// 3. typeDefs(스키마)와 리졸버를 객체에 넣어 전달한다.
 const server = new ApolloServer({
   typeDefs,
   resolvers,
