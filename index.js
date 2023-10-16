@@ -1,30 +1,51 @@
 const { ApolloServer } = require('apollo-server');
 
 const typeDefs = `
-  type Query {
-    totalPhotos: Int!
+  # 1. Photo 타입 정의를 추가한다.
+  type Photo {
+    id: ID!
+    url: String!
+    name: String!
+    description: String
   }
 
+  # 2. allPhotos에서 Photo 타입을 반환한다.
+  type Query {
+    totalPhotos: Int!
+    allPhotos: [Photo!]!
+  }
+
+  # 3. 뮤테이션에서 새로 게시된 사진을 반환한다.
   type Mutation {
-    postPhoto(name: String! description: String): Boolean!
+    postPhoto(name: String! description: String): Photo!
   }
 `;
 
-// 1. 메모리에 사진을 저장할 때 사용할 데이터 타입
+// 1. 고유 ID를 만들기 위해 값을 하나씩 증가시킨 변수이다.
+var _id = 0;
 var photos = [];
 
 const resolvers = {
   Query: {
-    // 2. 사진 배열의 길이를 반환한다.
     totalPhotos: () => photos.length,
+    allPhotos: () => photos,
   },
 
-  // 3. Mutation & postPhoto 리졸버 함수
   Mutation: {
     postPhoto(parent, args) {
-      photos.push(args);
-      return true;
+      // 2. 새로운 사진을 만들고 id 부여한다.
+      var newPhoto = {
+        id: _id++,
+        ...args,
+      };
+      photos.push(newPhoto);
+
+      return newPhoto;
     },
+  },
+
+  Photo: {
+    url: parant => `http://localhost.com/img/${parant.id}.jpg`,
   },
 };
 
