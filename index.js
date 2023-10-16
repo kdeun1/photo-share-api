@@ -1,170 +1,27 @@
-const { ApolloServer } = require('apollo-server');
-const { GraphQLScalarType } = require('graphql');
+const { ApolloServer } = require('apollo-server-express');
+const express = require('express');
+const expressPlayground =
+  require('graphql-playground-middleware-express').default;
+const { readFileSync } = require('fs');
 
-const typeDefs = `
-  scalar DateTime
+const typeDefs = readFileSync('./typeDefs.graphql', 'UTF-8');
+const resolvers = require('./resolvers');
 
-  enum PhotoCategory {
-    SELFIE
-    PRTRAIT
-    ACTION
-    LANDSCAPE
-    GRAPHIC
-  }
+async function startApolloServer(typeDefs, resolvers) {
+  const server = new ApolloServer({ typeDefs, resolvers });
+  const app = express();
+  await server.start();
+  server.applyMiddleware({ app });
 
-  type Photo {
-    id: ID!
-    url: String!
-    name: String!
-    description: String
-    category: PhotoCategory
-    postedBy: User!
-    taggedUsers: [User!]!
-    created: DateTime!
-  }
+  app.get('/', (req, res) => res.end('PhotoShare API에 오신 것을 환영합니다.'));
 
-  type Query {
-    totalPhotos: Int!
-    allPhotos(after: DateTime): [Photo!]!
-  }
+  app.get('/playground', expressPlayground({ endpoint: '/graphql' }));
 
-  input PostPhotoInput {
-    name: String!
-    category: PhotoCategory=PORTRAIT
-    description: String
-  }
+  app.listen({ port: 4000 }, () =>
+    console.log(
+      `GraphQL Server running @ http://localhost:4000${server.graphqlPath}`
+    )
+  );
+}
 
-  type Mutation {
-    postPhoto(input: PostPhotoInput!): Photo!
-  }
-
-  type User {
-    githubLogin: ID!
-    name: String
-    avatar: String
-    postedPhotos: [Photo!]!
-    inPhotos: [Photo!]!
-  }
-`;
-
-var _id = 0;
-var photos = [
-  {
-    id: '1',
-    name: 'name1',
-    description: 'desc1',
-    category: 'ACTION',
-    githubLogin: 'mHattrup1',
-    created: '3-28-1977',
-  },
-  {
-    id: '2',
-    name: 'name2',
-    description: 'desc2',
-    category: 'SELFIE',
-    githubLogin: 'mHattrup3',
-    created: '1-2-1985',
-  },
-  {
-    id: '3',
-    name: 'name3',
-    description: 'desc3',
-    category: 'LANDSCAPE',
-    githubLogin: 'mHattrup2',
-    created: '2022-04-15T19:08:33.305Z',
-  },
-];
-var users = [
-  {
-    githubLogin: 'mHattrup1',
-    name: 'Mike Hattrup1',
-  },
-  {
-    githubLogin: 'mHattrup2',
-    name: 'Mike Hattrup2',
-  },
-  {
-    githubLogin: 'mHattrup3',
-    name: 'Mike Hattrup3',
-  },
-];
-var tags = [
-  {
-    photoID: '1',
-    userID: 'mHattrup2',
-  },
-  {
-    photoID: '2',
-    userID: 'mHattrup2',
-  },
-  {
-    photoID: '2',
-    userID: 'mHattrup1',
-  },
-  {
-    photoID: '2',
-    userID: 'mHattrup3',
-  },
-];
-
-const resolvers = {
-  Query: {
-    totalPhotos: () => photos.length,
-    allPhotos: () => photos,
-  },
-
-  Mutation: {
-    postPhoto(parent, args) {
-      var newPhoto = {
-        id: _id++,
-        ...args.input,
-        created: new Date(),
-      };
-      photos.push(newPhoto);
-
-      return newPhoto;
-    },
-  },
-
-  Photo: {
-    url: parant => `http://localhost.com/img/${parant.id}.jpg`,
-    postedBy: parent => {
-      return users.find(u => u.githubLogin === parent.githubLogin);
-    },
-    taggedUsers: parent => {
-      return tags
-        .filter(tag => tag.photoID === parent.id)
-        .map(tag => tag.userID)
-        .map(userId => users.find(u => u.githubLogin === userId));
-    },
-  },
-
-  User: {
-    postedPhotos: parent => {
-      return photos.filter(p => p.githubLogin === parent.githubLogin);
-    },
-    inPhotos: parent => {
-      return tags
-        .filter(tag => tag.userID === parent.id)
-        .map(tag => tag.photoID)
-        .map(photoId => photos.find(p => p.id === photoId));
-    },
-  },
-
-  DateTime: new GraphQLScalarType({
-    name: 'DateTime',
-    description: 'A valid date time value.',
-    parseValue: v => new Date(v),
-    serialize: v => new Date(v).toISOString(),
-    parseLiteral: ast => ast.value,
-  }),
-};
-
-const server = new ApolloServer({
-  typeDefs,
-  resolvers,
-});
-
-server
-  .listen()
-  .then(({ url }) => console.log(`GraphQL Service running on ${url}`));
+startApolloServer(typeDefs, resolvers);
